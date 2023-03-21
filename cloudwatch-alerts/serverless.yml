@@ -1,0 +1,74 @@
+
+plugins:
+  - serverless-plugin-aws-alerts
+  - serverless-plugin-resource-tagging
+  - serverless-plugin-metric
+
+
+service: cloudwatch-alerts
+frameworkVersion: '2.72.3'
+
+custom:
+  accountId:  AWS::AccountId
+  lambda: error-lambda
+  sns: error-log
+  alerts:
+    topics:
+      nonCritical:
+        alarm:
+          topic: !Ref 'snsTopic'
+  metrics: # Array<MetricOption>
+    - name: foo
+      pattern: Errors
+
+provider:
+  name: aws
+  runtime: python3.7
+  region: us-east-1
+  iam:
+    role:
+      name: error-cloudwatch
+      Version: '2012-10-17'
+      Statement:
+      - Effect: Allow
+        Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+        Resource: Sub! "arn:aws:logs:us-east-1:${AWS::AccountId}:log-group:/aws/lambda/${self:custom.lambda}:*"
+
+
+functions:
+  lambda_handler:
+    handler: checking-test.lambda_handler
+
+
+resources:
+  Resources:
+    snsTopic: 
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:custom.sns}
+    MySnsSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: sahith.palika@bizcloudexperts.com                #chnage the endpoint
+        Protocol: email
+        TopicArn: !Ref snsTopic
+    
+    LambdaErrorAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ErrorLogNotification
+        AlarmDescription: When Lambda error occurs it will be notified through SNS
+        Namespace: 'AWS/Logs/MetricFilter'
+        Dimensions:
+          - Name: LogGroupName
+            Value: /aws/lambda/checking-test                     #change this to the loggroup name for which this functionality should work
+        Statistic: Minimum
+        ComparisonOperator: GreaterThanThreshold
+        Threshold: 0
+        Period: 60
+        EvaluationPeriods: 1
+        AlarmActions:
+          - Ref: snsTopic

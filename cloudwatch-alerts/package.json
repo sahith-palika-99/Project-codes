@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "serverless-plugin-aws-alerts": "^1.7.4",
+    "serverless-plugin-metric": "^1.2.2",
+    "serverless-plugin-resource-tagging": "^1.2.0"
+  }
+}

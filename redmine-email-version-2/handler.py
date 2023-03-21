@@ -104,7 +104,7 @@ def lambda_handler(event, context):
     #Default Priority
     default_priority = 5
     
-    redmine = Redmine('https://agiledev.bizcloudexperts.com', key='42315859052ffc67247532f90c139435578e5144')
+    redmine = Redmine('https://agiledev.bizcloudexperts.com', key='key')
     user = redmine.auth()
     
     if subject[1:].startswith("Re:"):
@@ -141,7 +141,7 @@ def lambda_handler(event, context):
             #sending alerts to slack-channel
             message = 'A ticket is created with the #' + ticket_id + ' number. Link: https://agiledev.bizcloudexperts.com/issues/' + ticket_id
             http = urllib3.PoolManager()
-            url ="https://hooks.slack.com/services/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"
+            url ="slack_url"
             msg = {
             "channel": "#bizcloud-support",
             "username": "WEBHOOK_USERNAME",
@@ -177,7 +177,7 @@ def lambda_handler(event, context):
             #sending alerts to slack-channel
             message = 'A ticket is created with the #' + ticket_id + ' number. Link: https://agiledev.bizcloudexperts.com/issues/' + ticket_id
             http = urllib3.PoolManager()
-            url ="https://hooks.slack.com/services/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"
+            url ="slack_url"
             msg = {
             "channel": "#bizcloud-support",
             "username": "WEBHOOK_USERNAME",

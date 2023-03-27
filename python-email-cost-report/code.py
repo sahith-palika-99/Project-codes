@@ -2,6 +2,8 @@ import json
 import boto3
 import datetime
 from botocore.exceptions import ClientError
+from tabulate import tabulate
+import pandas as pd
 
 def lambda_handler(event, context):
     
@@ -11,8 +13,9 @@ def lambda_handler(event, context):
     yesterday = today - datetime.timedelta(days = 1) 
     str_today = str(today) 
     str_yesterday = str(yesterday)
-    # connecting to cost explorer to get daily aws usage 
-    response = billing_client.get_cost_and_usage( 
+    
+    # get total cost for the previous day
+    response_total = billing_client.get_cost_and_usage( 
        TimePeriod={ 
          'Start': str_yesterday, 
          'End': str_today }, 
@@ -20,85 +23,62 @@ def lambda_handler(event, context):
        Metrics=[ 'UnblendedCost',] 
     )
     
-    cost = response["ResultsByTime"][0]['Total']['UnblendedCost']['Amount']
-    cost='$'+str(cost)
-    message = 'Cost of AWS training account for yesterday was' 
+    total_cost = response_total["ResultsByTime"][0]['Total']['UnblendedCost']['Amount']
+    total_cost=float(total_cost)
+    total_cost=round(total_cost, 3)
+    total_cost = '$' + str(total_cost)
     
-    # create an SES client
-    ses_client = boto3.client('ses', region_name='us-east-1')
+    # print the total cost
+    print('Total cost for yesterday: ' + total_cost)
     
-    # create the HTML and CSS code for the email
-    html = """
-        <html>
-          <head>
-            <style>
-              body {{
-                font-family: Arial, sans-serif;
-                background-color: black;
-                color: white;
-              }}
-              h2 {{
-                color: white;
-                font-size: 25px;
-                text-align: center;
-          
-              }}
-              h1 {{
-                color: #333333;
-                font-size: 40px;
-                text-align: center;
-                background-color: yellow;
-              }}
-              p {{
-                color: white;
-                font-size: 30px;
-                line-height: 1.5;
-                margin-bottom: 20px;
-                text-align: center;
-              }}
-            </style>
-          </head>
-          <body>
-            <p> Training Account report for the day {} </p>
-            <h2> {}  </h2>
-            <h1><strong> <em>{}</em></strong> </h1>
-          </body>
-        </html>
-        """.format(str_yesterday,message,cost)
-
-    # create the message
-    message = {
-        'Subject': {'Data': 'AWS training account cost report'},
-        'Body': {'Html': {'Data': html}}
-    }
-    
-    response = ses_client.send_email(
-        Source='sahithpalika@cloudangles.com',
-        Destination={'ToAddresses': ['jayasree.gundasu@cloudangles.com', 'sahithpalika@cloudangles.com']},
-        Message=message
+    # get detailed billing for individual resources
+    response_detail = billing_client.get_cost_and_usage(
+        TimePeriod={
+            'Start': str_yesterday,
+            'End': str_today
+        },
+        Granularity='DAILY',
+        Metrics=['UnblendedCost'],
+        GroupBy=[
+            {
+                'Type': 'DIMENSION',
+                'Key': 'SERVICE'
+            },
+            {
+                'Type': 'DIMENSION',
+                'Key': 'USAGE_TYPE'
+            }
+        ]
     )
     
-    if today.weekday() == 1:
-        week = today - datetime.timedelta(days = 7) 
-        str_week = str(week)
-        # connecting to cost explorer to get daily aws usage 
-        response = billing_client.get_cost_and_usage( 
-           TimePeriod={ 
-             'Start': str_week, 
-             'End': str_today }, 
-           Granularity='MONTHLY', 
-           Metrics=[ 'UnblendedCost',] 
-        )
+    resources = {'Service':[],'Usage Type':[],'Cost':[]}
+    
+    for result in response_detail['ResultsByTime'][0]['Groups']:
+        group_key = result['Keys']
+        service = group_key[0]
+        usage_type = group_key[1]
+        cost = result['Metrics']['UnblendedCost']['Amount']
+        cost=float(cost)
+        cost=round(cost, 3)
+        '''cost='{:.0f}'.format(cost)
+        cost=float(cost)'''
         
-        cost = response["ResultsByTime"][0]['Total']['UnblendedCost']['Amount']
-        cost='$'+str(cost)
-        message = 'Cost of AWS training account for the week was' 
-        
-        # create an SES client
-        ses_client = boto3.client('ses', region_name='us-east-1')
-        
-        # create the HTML and CSS code for the email
-        html = """
+        if cost > 0:
+            cost = '$' + str(cost)
+            resources['Service'].append(service)
+            resources['Usage Type'].append(usage_type)
+            resources['Cost'].append(cost)
+            
+    df = pd.DataFrame(resources)
+    html_table = df.to_html(index=False)
+            
+    print(resources)        
+    #resource_table=tabulate(resources, headers='firstrow')
+    #print(resource_table)
+    
+    message = 'Cost of AWS training account for yesterday was' 
+    
+    html = """
             <html>
               <head>
                 <style>
@@ -125,17 +105,154 @@ def lambda_handler(event, context):
                     margin-bottom: 20px;
                     text-align: center;
                   }}
+                  p1 {{
+                     font-size: 10px;
+                     text-align: center;
+                      margin-left: auto;
+                     margin-right: auto;
+                  }}
                 </style>
               </head>
               <body>
-                <p> Training Account report for the week {} to {} </p>
+                <p> Training Account report for the day {} </p>
                 <h2> {} </h2>
                 <h1> <strong> <em> {} </em></strong> </h1>
+                <p1>{}</p1>
               </body>
             </html>
-            """.format(str_week,str_today,message,cost)
+            """.format(str_yesterday,message,total_cost,html_table)
+            
+
     
-        # create the message
+    ses_client = boto3.client('ses', region_name='us-east-1')
+    
+    message = {
+        'Subject': {'Data': 'AWS training account cost report'},
+        'Body': {'Html': {'Data': html}}
+    }
+    
+    response = ses_client.send_email(
+        Source='sahithpalika@cloudangles.com',
+        Destination={'ToAddresses': ['jayasree.gundasu@cloudangles.com', 'sahithpalika@cloudangles.com']},
+        Message=message
+    )
+    
+    if today.weekday() == 0:
+        print('week')
+        week = today - datetime.timedelta(days = 7) 
+        str_week = str(week)
+        
+        response_total = billing_client.get_cost_and_usage( 
+           TimePeriod={ 
+             'Start': str_week, 
+             'End': str_today }, 
+           Granularity='MONTHLY', 
+           Metrics=[ 'UnblendedCost',] 
+        )
+        
+        total_cost = response_total["ResultsByTime"][0]['Total']['UnblendedCost']['Amount']
+        total_cost=float(total_cost)
+        total_cost=round(total_cost, 3)
+        total_cost = '$' + str(total_cost)
+        
+        # print the total cost
+        print('Total cost for yesterday: ' + total_cost)
+        
+        # get detailed billing for individual resources
+        response_detail = billing_client.get_cost_and_usage(
+            TimePeriod={
+                'Start': str_week,
+                'End': str_today
+            },
+            Granularity='MONTHLY',
+            Metrics=['UnblendedCost'],
+            GroupBy=[
+                {
+                    'Type': 'DIMENSION',
+                    'Key': 'SERVICE'
+                },
+                {
+                    'Type': 'DIMENSION',
+                    'Key': 'USAGE_TYPE'
+                }
+            ]
+        )
+        
+        resources = {'Service':[],'Usage Type':[],'Cost':[]}
+        
+        for result in response_detail['ResultsByTime'][0]['Groups']:
+            group_key = result['Keys']
+            service = group_key[0]
+            usage_type = group_key[1]
+            cost = result['Metrics']['UnblendedCost']['Amount']
+            cost=float(cost)
+            cost=round(cost, 3)
+            '''cost='{:.0f}'.format(cost)
+            cost=float(cost)'''
+            
+            if cost > 0:
+                cost = '$' + str(cost)
+                resources['Service'].append(service)
+                resources['Usage Type'].append(usage_type)
+                resources['Cost'].append(cost)
+                
+        df = pd.DataFrame(resources)
+        html_table = df.to_html(index=False)
+                
+        print(resources)        
+        #resource_table=tabulate(resources, headers='firstrow')
+        #print(resource_table)
+        
+        message = 'Cost of AWS training account for yesterday was' 
+        
+        html = """
+                <html>
+                  <head>
+                    <style>
+                      body {{
+                        font-family: Arial, sans-serif;
+                        color: white;
+                        background-color: black;
+                      }}
+                      h2 {{
+                        color: white;
+                        font-size: 25px;
+                        text-align: center;
+                      }}
+                      h1 {{
+                        color: #333333;
+                        font-size: 40px;
+                        text-align: center;
+                        background-color: yellow;
+                      }}
+                      p {{
+                        color: white;
+                        font-size: 30px;
+                        line-height: 1.5;
+                        margin-bottom: 20px;
+                        text-align: center;
+                      }}
+                      p1 {{
+                         font-size: 10px;
+                         text-align: center;
+                          margin-left: auto;
+                         margin-right: auto;
+                      }}
+                    </style>
+                  </head>
+                  <body>
+                    <p> Training Account report for the week {} and {} </p>
+                    <h2> {} </h2>
+                    <h1> <strong> <em> {} </em></strong> </h1>
+                    <p1>{}</p1>
+                  </body>
+                </html>
+                """.format(str_week,str_today,message,total_cost,html_table)
+                
+    
+        
+        ses_client = boto3.client('ses', region_name='us-east-1')
+        
         message = {
             'Subject': {'Data': 'AWS training account cost report'},
             'Body': {'Html': {'Data': html}}
@@ -146,3 +263,8 @@ def lambda_handler(event, context):
             Destination={'ToAddresses': ['jayasree.gundasu@cloudangles.com', 'sahithpalika@cloudangles.com']},
             Message=message
         )
+        
+
+
+            
+        

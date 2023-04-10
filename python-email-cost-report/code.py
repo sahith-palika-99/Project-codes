@@ -133,7 +133,7 @@ def lambda_handler(event, context):
     
     response = ses_client.send_email(
         Source='sahithpalika@cloudangles.com',
-        Destination={'ToAddresses': ['jayasree.gundasu@cloudangles.com', 'sahithpalika@cloudangles.com']},
+        Destination={'ToAddresses': [ 'sahithpalika@cloudangles.com']},
         Message=message
     )
     
@@ -150,51 +150,133 @@ def lambda_handler(event, context):
            Metrics=[ 'UnblendedCost',] 
         )
         
-        total_cost = response_total["ResultsByTime"][0]['Total']['UnblendedCost']['Amount']
-        total_cost=float(total_cost)
-        total_cost=round(total_cost, 3)
-        total_cost = '$' + str(total_cost)
+        print(response_total)
+        length=len(response_total["ResultsByTime"])
+        print(length)
         
-        # print the total cost
-        print('Total cost for yesterday: ' + total_cost)
-        
-        # get detailed billing for individual resources
-        response_detail = billing_client.get_cost_and_usage(
-            TimePeriod={
-                'Start': str_week,
-                'End': str_today
-            },
-            Granularity='MONTHLY',
-            Metrics=['UnblendedCost'],
-            GroupBy=[
-                {
-                    'Type': 'DIMENSION',
-                    'Key': 'SERVICE'
-                },
-                {
-                    'Type': 'DIMENSION',
-                    'Key': 'USAGE_TYPE'
-                }
-            ]
-        )
-        
-        resources = {'Service':[],'Usage Type':[],'Cost':[]}
-        
-        for result in response_detail['ResultsByTime'][0]['Groups']:
-            group_key = result['Keys']
-            service = group_key[0]
-            usage_type = group_key[1]
-            cost = result['Metrics']['UnblendedCost']['Amount']
-            cost=float(cost)
-            cost=round(cost, 3)
-            '''cost='{:.0f}'.format(cost)
-            cost=float(cost)'''
+        if (length==2):
+            total_cost_1 = response_total["ResultsByTime"][0]['Total']['UnblendedCost']['Amount']
+            total_cost_2 = response_total["ResultsByTime"][1]['Total']['UnblendedCost']['Amount']
+            total_cost_1=float(total_cost_1)
+            total_cost_2=float(total_cost_2)
+            total_cost = total_cost_1+total_cost_2
+            total_cost=round(total_cost, 3)
+            total_cost = '$' + str(total_cost)
             
-            if cost > 0:
-                cost = '$' + str(cost)
-                resources['Service'].append(service)
-                resources['Usage Type'].append(usage_type)
-                resources['Cost'].append(cost)
+            # print the total cost
+            print('Total cost for the week: ' + total_cost)
+            
+            # get detailed billing for individual resources
+            response_detail = billing_client.get_cost_and_usage(
+                TimePeriod={
+                    'Start': str_week,
+                    'End': str_today
+                },
+                Granularity='MONTHLY',
+                Metrics=['UnblendedCost'],
+                GroupBy=[
+                    {
+                        'Type': 'DIMENSION',
+                        'Key': 'SERVICE'
+                    },
+                    {
+                        'Type': 'DIMENSION',
+                        'Key': 'USAGE_TYPE'
+                    }
+                ]
+            )
+            
+            resources = {'Service':[],'Usage Type':[],'Cost':[]}
+            resources_1 = {'Service':[],'Usage Type':[],'Cost':[]}
+            
+            for result in response_detail['ResultsByTime'][0]['Groups']:
+                group_key = result['Keys']
+                service = group_key[0]
+                usage_type = group_key[1]
+                cost = result['Metrics']['UnblendedCost']['Amount']
+                cost=float(cost)
+                cost=round(cost, 3)
+                '''cost='{:.0f}'.format(cost)
+                cost=float(cost)'''
+                
+                if cost > 0:
+                    cost = '$' + str(cost)
+                    resources['Service'].append(service)
+                    resources['Usage Type'].append(usage_type)
+                    resources['Cost'].append(cost)
+                    
+            for result in response_detail['ResultsByTime'][1]['Groups']:
+                group_key = result['Keys']
+                service = group_key[0]
+                usage_type = group_key[1]
+                cost = result['Metrics']['UnblendedCost']['Amount']
+                cost=float(cost)
+                cost=round(cost, 3)
+                '''cost='{:.0f}'.format(cost)
+                cost=float(cost)'''
+                
+                if cost > 0:
+                    
+                    cost = '$' + str(cost)
+                    resources_1['Service'].append(service)
+                    resources_1['Usage Type'].append(usage_type)
+                    resources_1['Cost'].append(cost)
+                    
+            for key, value in resources_1.items():
+                if key in resources:
+                    resources[key] += value
+                else:
+                    resources[key] = value
+                    
+            
+        else:
+            total_cost = response_total["ResultsByTime"][0]['Total']['UnblendedCost']['Amount']
+            total_cost=float(total_cost)
+            total_cost=round(total_cost, 3)
+            total_cost = '$' + str(total_cost)
+            
+            # print the total cost
+            print('Total cost for the week: ' + total_cost)
+            
+            # get detailed billing for individual resources
+            response_detail = billing_client.get_cost_and_usage(
+                TimePeriod={
+                    'Start': str_week,
+                    'End': str_today
+                },
+                Granularity='MONTHLY',
+                Metrics=['UnblendedCost'],
+                GroupBy=[
+                    {
+                        'Type': 'DIMENSION',
+                        'Key': 'SERVICE'
+                    },
+                    {
+                        'Type': 'DIMENSION',
+                        'Key': 'USAGE_TYPE'
+                    }
+                ]
+            )
+            
+            resources = {'Service':[],'Usage Type':[],'Cost':[]}
+            
+            for result in response_detail['ResultsByTime'][0]['Groups']:
+                group_key = result['Keys']
+                service = group_key[0]
+                usage_type = group_key[1]
+                cost = result['Metrics']['UnblendedCost']['Amount']
+                cost=float(cost)
+                cost=round(cost, 3)
+                '''cost='{:.0f}'.format(cost)
+                cost=float(cost)'''
+                
+                if cost > 0:
+                    cost = '$' + str(cost)
+                    resources['Service'].append(service)
+                    resources['Usage Type'].append(usage_type)
+                    resources['Cost'].append(cost)
+                    
+        print(type(resources))
                 
         df = pd.DataFrame(resources)
         html_table = df.to_html(index=False)
@@ -203,7 +285,7 @@ def lambda_handler(event, context):
         #resource_table=tabulate(resources, headers='firstrow')
         #print(resource_table)
         
-        message = 'Cost of AWS training account for yesterday was' 
+        message = 'Cost of AWS training account for the  was' 
         
         html = """
                 <html>
@@ -260,11 +342,6 @@ def lambda_handler(event, context):
         
         response = ses_client.send_email(
             Source='sahithpalika@cloudangles.com',
-            Destination={'ToAddresses': ['jayasree.gundasu@cloudangles.com', 'sahithpalika@cloudangles.com']},
+            Destination={'ToAddresses': [ 'sahithpalika@cloudangles.com']},
             Message=message
         )
-        
-
-
-            
-        

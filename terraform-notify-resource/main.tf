@@ -16,17 +16,19 @@ resource "aws_cloudwatch_event_rule" "console" {
   name        = "resource-test-tf"
   description = "notify new resource created"
 
-  event_pattern = jsonencode({
-    source = ["aws.config"]
-    detail-type = ["Config Configuration Item Change"]
-     detail = {
-        messageType = ["ConfigurationItemChangeNotification"]
-        configurationItem = {
-            resourceType = ["AWS::S3::BUCKET"]
-            configurationItemStatus = ["ResourceDiscovered"]
-        }
-     }
-  })
+  event_pattern = <<EOF
+{
+  "source": ["aws.config"],
+  "detail-type": ["Config Configuration Item Change"],
+  "detail": {
+    "messageType": ["ConfigurationItemChangeNotification"],
+    "configurationItem": {
+      "resourceType": ["AWS::S3::Bucket"],
+      "configurationItemStatus": ["ResourceDiscovered"]
+    }
+  }
+}
+EOF
 }
 
 resource "aws_cloudwatch_event_target" "sns" {

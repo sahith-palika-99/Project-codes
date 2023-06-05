@@ -1,0 +1,101 @@
+Kshema Project documentation 
+
+Resource groups –  
+Created two resource groups namely –  
+
+Prod01-rg for production (Central India)  
+
+Prod01-dr-rg for Disaster Recovery (South India) region. 
+ 
+
+Virtual Networks -  
+Two virtual networks configured in both the regions 
+
+Prod01-vnet for production in the range of 11.0.0.0/16 
+
+Prod01-dr-vnet for DR in the range of 20.0.0.0/16 
+ 
+
+Subnets for production - 
+Subnets in Central India region is as follows 
+
+default subnet as universal if nothing is selected in the range of 11.0.0.0/24 
+
+AzureBastionSubnet subnet in the range of 11.0.1.0/26 
+
+Prod01-apg for application gateway in the range of 11.0.2.0/24 
+
+Prod01-vmss for Virtual machine scale sets in the range of 11.0.3.0/24 
+
+Prod01-pgsql for PostgreSQL in the range of 11.0.4.0/24 
+ 
+
+Subnets for Disaster Recovery - 
+Subnets in South India region is as follows 
+
+default subnet as universal if nothing is selected in the range of 20.0.0.0/24 
+
+AzureBastionSubnet subnet in the range of 20.0.1.0/26 
+
+Prod01-dr-apg for application gateway in the range of 20.0.2.0/24 
+
+Prod01-dr-vmss for Virtual machine scale sets in the range of 20.0.3.0/24 
+
+Prod01-dr-pgsql for PostgreSQL in the range of .0.4.0/24 
+ 
+
+NAT gateways - 
+
+Prod01-nat gateway has been created in the primary region and is attached to the Prod01-vmss and Prod01-pgsql 
+
+Prod01-dr-nat gateway has been created in the DR region and is attached to the Prod01-dr-vmss and Prod01-dr-pgsql 
+ 
+
+Bastions to connect to the servers - 
+Created two bastion servers one with Windows and other with Linux 
+
+Prod01-jump-server-vm is Windows based jump server in the default subnet 
+
+Prod01-bastion is Linux based jump server in the AzureBastionSubnet subnet 
+ 
+
+Application Gateways- 
+Created two Application gateways in both the regions 
+
+Application Gateway namely, Prod01-apg, is created in the subnet Prod01-apg subnet with two listener rules -  
+
+Https direct to http at the backend pool 
+
+Http direct to Http at the backend pool 
+
+Application Gateway namely, Prod01-dr-apg, is created in the subnet Prod01-dr-apg subnet with two listener rules -  
+
+Https direct to http at the backend pool 
+
+Http direct to Http at the backend pool 
+ 
+
+Azure Compute Galleries - 
+Created a Compute gallery named Prod01_production_gallery which stores versions of images under a definition Prod01-production-image. 
+Images that are being pushed into the gallery are both replicated to Central and South India Regions 
+ 
+
+Virtual Machine Scale Sets in Production - 
+Created a VMSS with the name Prod-vmss and the image that has been created and stored in the above gallery. The size of the instances is taken as Standard_B2s with a minimum of two instances. The scaling condition at present is set to a minimum of 2 instances and a maximum of 5 with a scale-out threshold of 80% and a scale-in threshold of 50%. 
+ 
+
+Virtual Machine Scale Sets in Disaster Recovery - 
+Created a VMSS with the name Prod01-dr-vmss and the image that has been created and stored in the above gallery. The size of the instances is taken as Standard_D2s_v3 with a minimum of two instances. The scaling condition at present is set to a minimum of 2 instances and a maximum of 5 with a scale-out threshold of 80% and a scale-in threshold of 50%. 
+ 
+
+PostgreSQL Database - 
+A PostgreSQL database has been created with the name prod01-pgsql with General Purpose D2-ds v5 and a replica has been created in DR region with the name prod01-dr-pgsql. 
+ 
+
+ 
+
+ 
+
+ 
+
+ 
